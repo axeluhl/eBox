@@ -51,3 +51,7 @@ The second and third crontab entries then looks like this:
 where the ``ebox_modbusquery.py`` script logs the Innogy/E.ON eBox Professional's Modbus values to InfluxDB, and the ``ebox_control.sh`` script uses the InfluxDB content to configure the maximum power allowed for the eBox, reading configuration data---particularly on the strategy to use---from ``/etc/ebox_defaults.conf``.
 
 Additionally, there is a script ``ebox_default_strategy.sh`` that outputs or updates the strategy in ``/etc/ebox_defaults.conf`` for granting energy to the wallbox. I created a group ``ebox`` who is the group owner of ``/etc/ebox_defaults.conf`` with that file being group-writable, so that members of that group can run ``ebox_default_strategy.sh`` to update the ``STRATEGY`` variable in that file from where ``ebox_control.sh`` picks it up.
+
+## Grafana
+
+I use Grafana to monitor PV and wallbox. Not being a Grafana expert, the best I could come up with so far in order to share the dashboards I've assembled was exporting them as JSON files. You can find them in the ``grafana/`` folder. My take is that to make those work for you, you'd have to create an InfluxDB data source in your Grafana installation that uses the ``kostal`` DB that the scripts write to. It also seems that during importing the dashboard JSON files, Grafana allows you to bind the data source. Let me know how this works for you.
