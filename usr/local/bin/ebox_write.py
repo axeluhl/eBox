@@ -14,7 +14,7 @@ from pymodbus.payload import BinaryPayloadBuilder
 class ebox_modbusquery:
     def __init__(self):
         # Change the IP address and port to suite your environment:
-        self.ebox_ip='192.168.1.1'
+        self.ebox_ip='yourebox.example.com'
         self.ebox_port="5555"
         
     try:
