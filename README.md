@@ -12,6 +12,23 @@ sudo echo "$( crontab -l; cat crontab )" | crontab -
 ```
 In the scripts under eBox/usr/local/bin replace ``yourinfluxhost.example.com`` with the hostname or IP address of the host where your InfluxDB is running, ``yourebox.example.com`` with the hostname or IP address of your Innogy/E.ON eBox Professional, and ``yourkostalinverter.example.com`` with the hostname or IP address of your Kostal inverter. Make sure to have Modbus enabled on your Kostal inverter and your eBox Pro. If your ports deviate from 1502 and 5555, respectively, adjust them in the ``eBox/usr/local/bin/kostal_modbusquery.py`` / ``eBox/usr/local/bin/ebox_modbusquery.py`` / ``ebox/usr/local/bin/ebox_write.py`` scripts, respectively.
 
+Use ``/usr/local/bin/ebox_default_strategy.sh`` to adjust your charging strategy:
+```
+$ ebox_default_strategy.sh
+Current default strategy is 1
+Call like this to change default strategy:
+   /usr/local/bin/ebox_default_strategy.sh <new-default-strategy>
+Example: /usr/local/bin/ebox_default_strategy.sh 2
+  sets 2 as the new default strategy
+For strategies see the online help of ebox_control.sh
+Usage: /usr/local/bin/ebox_control.sh [ -s <STRATEGY> ] [ -m <MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS> ] [ -p <NUMBER_OF_PHASES_USED_FOR_CHARGING> ]
+ STRATEGY: 0 means to open the wallbox throttle entirely; 50A
+           1 means to split excess PV energy evenly between home battery and wallbox;
+           2 means to prefer home battery charging and only send to wallbox what would otherwise be ingested to grid.
+           3 means to prefer car charging and only send to the home battery what would otherwise be ingested to grid.
+           Default is 1.
+```
+
 ## Background
 
 As an owner of a photovoltaic (PV) solar generator with a Kostal Plenticore 8.5 inverter and a BYD battery I recently participated in the SAP Charge@Home program and ordered a plugin hybrid electric vehicle (PHEV). After some hassle with the wallbox ordering and installation process (see also related JAM articles) I finally have a set-up that allows me to play with logging, charting, controlling and automating things.
