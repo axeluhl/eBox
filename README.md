@@ -38,14 +38,14 @@ One recent goal was controlling the wallbox's power output based on PV output an
 My set-up consists of an InfluxDB to which I'm logging my Kostal inverter's Modbus values every five seconds, triggered by a cron job that runs every minute and repeats twelve times, every five seconds. The crontab line could look something like this:
 
 ```
-* * * * *       /usr/local/bin/kostal_modbusquery.py 12 5 >/var/log/kostal_modbusquery.out 2>/var/log/kostal_modbusquery.err
+* * * * *	/usr/local/bin/kostal_modbusquery.py 12 5 >/var/log/kostal_modbusquery.out 2>/var/log/kostal_modbusquery.err
 ```
 
 The second and third crontab entries then looks like this:
 
 ```
-* * * * *       /usr/local/bin/ebox_modbusquery.py >/var/log/ebox_modbusquery.out 2>/var/log/ebox_modbusquery.err
-*/5 * * * *       /usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control
+* * * * *	/usr/local/bin/ebox_modbusquery.py >/var/log/ebox_modbusquery.out 2>/var/log/ebox_modbusquery.err
+*/5 * * * *	/usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control
 ```
 
 where the ``ebox_modbusquery.py`` script logs the Innogy/E.ON eBox Professional's Modbus values to InfluxDB, and the ``ebox_control.sh`` script uses the InfluxDB content to configure the maximum power allowed for the eBox, reading configuration data---particularly on the strategy to use---from ``/etc/ebox_defaults.conf``.
