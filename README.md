@@ -10,7 +10,7 @@ sudo ln -s eBox/usr/local/bin/* /usr/local/bin
 sudo ln -s eBox/etc* /etc
 sudo echo "$( crontab -l; cat crontab )" | crontab -
 ```
-Replace ``yourinfluxhost.example.com`` with the hostname or IP address of the host where your InfluxDB is running, ``yourebox.example.com`` with the hostname or IP address of your Innogy/E.ON eBox Professional, and ``yourkostalinverter.example.com`` with the hostname or IP address of your Kostal inverter.
+In the scripts under eBox/usr/local/bin replace ``yourinfluxhost.example.com`` with the hostname or IP address of the host where your InfluxDB is running, ``yourebox.example.com`` with the hostname or IP address of your Innogy/E.ON eBox Professional, and ``yourkostalinverter.example.com`` with the hostname or IP address of your Kostal inverter. Make sure to have Modbus enabled on your Kostal inverter and your eBox Pro. If your ports deviate from 1502 and 5555, respectively, adjust them in the ``eBox/usr/local/bin/kostal_modbusquery.py`` / ``eBox/usr/local/bin/ebox_modbusquery.py`` / ``ebox/usr/local/bin/ebox_write.py`` scripts, respectively.
 
 ## Background
 
