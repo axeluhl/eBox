@@ -88,7 +88,7 @@ influx -host yourinfluxhost.example.com -database kostal -execute 'select mean("
       maxCurrentPerPhase=$( echo "scale=2
                             ${eBoxAllowedPowerInWatts} / 230 / ${NUMBER_OF_PHASES_USED_FOR_CHARGING}" | bc )
       echo "Max current per phase:    ${maxCurrentPerPhase}A"
-      integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' )
+      integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' | sed -e 's/^$/0/' )
       echo "Integer max cur./phase:   ${integerMaxCurrentPerPhaseInAmps}"
       if [ ${integerMaxCurrentPerPhaseInAmps} -le 0 ]; then
         effectiveMaxCurrentPerPhaseInAmps=0
