@@ -3,7 +3,7 @@
 # Strategy 1: split excess PV energy evenly between home battery and wallbox: (PV production - Home Usage + Wallbox)/2
 # Special cases:
 #  - car not connected or full; setting MaxCurrentPhase[123] won't make the wallbox consume energy in this case
-#  - home battery SOC >= 99%: allow car to take all excess PV energy (PV production - Home Usage + Wallbox), capped at 32A
+#  - home battery SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow car to take all excess PV energy (PV production - Home Usage + Wallbox), capped at 32A
 # Strategy 2: charge car only with energy otherwise ingested to grid, preferring home battery charging
 #  - as soon as 5min average of (PV production - Charge Power - Home Usage + Wallbox) is positive, increase wallbox power limit, min 6A,
 #    max (PV production - Charge Power - Home Usage + Wallbox), capped at 32A
@@ -16,6 +16,7 @@ else
   NUMBER_OF_PHASES_USED_FOR_CHARGING=1
   MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS=5560
   MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50
+  SOC_THRESHOLD_FOR_FULL_EXCESS=98
 fi
 # Command line option handling:
 options=':s:p:mh'
@@ -60,21 +61,21 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
     else
       if [ "${STRATEGY}" = "1" ]; then
         echo "Strategy 1:"
-        if [ ${integerSOCInPercent} -ge 99 ]; then
-          echo "SOC >= 99%: allow all excess PV power ${pvExcessPowerInWatts}W"
+        if [ ${integerSOCInPercent} -ge ${SOC_THRESHOLD_FOR_FULL_EXCESS} ]; then
+          echo "SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow all excess PV power ${pvExcessPowerInWatts}W"
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
         else
-          echo "SOC < 99%: allow half of the excess PV power ${pvExcessPowerInWatts}W in order to split evenly with home battery"
+          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow half of the excess PV power ${pvExcessPowerInWatts}W in order to split evenly with home battery"
           eBoxAllowedPowerInWatts=$( echo "scale=2
                                      ${pvExcessPowerInWatts} / 2" | bc )
         fi
       elif [ "${STRATEGY}" = "2" ]; then
         echo "Strategy 2:"
-        if [ ${integerSOCInPercent} -ge 99 ]; then
-          echo "SOC >= 99%: allow all excess PV power ${pvExcessPowerInWatts}W"
+        if [ ${integerSOCInPercent} -ge ${SOC_THRESHOLD_FOR_FULL_EXCESS} ]; then
+          echo "SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow all excess PV power ${pvExcessPowerInWatts}W"
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
         else
-          echo "SOC < 99%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept (${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W)"
+          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept (${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W)"
           eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} - ${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}" | bc )
         fi
       elif [ "${STRATEGY}" = "3" ]; then
