@@ -37,8 +37,8 @@ do
     esac
 done
 INFLUXDB_HOSTNAME=yourinfluxhost.example.com
-influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV production"), mean("Home own consumption"), mean("Act. state of charge"), mean("Battery Charge") from pv where time > now()-5m' | tail -1 | while read time pvProductionInWatts homeOwnConsumptionInWatts SOCInPercent batteryDischargePowerInWatts; do
-  influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean(CurrentPhase1)+mean(CurrentPhase2)+mean(CurrentPhase3) from ebox where time > now()-5m' | tail -1 | while read time eBoxCurrentInAmps; do
+influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV production"), mean("Home own consumption"), mean("Act. state of charge"), mean("Battery Charge") from pv where time > now()-2m' | tail -1 | while read time pvProductionInWatts homeOwnConsumptionInWatts SOCInPercent batteryDischargePowerInWatts; do
+  influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean(CurrentPhase1)+mean(CurrentPhase2)+mean(CurrentPhase3) from ebox where time > now()-2m' | tail -1 | while read time eBoxCurrentInAmps; do
     eBoxPowerInWatts=$( echo "${eBoxCurrentInAmps} * 230.0" | bc )
     integerSOCInPercent=$( echo "${SOCInPercent}" | sed -e 's/\..*$//' )
     homeConsumptionWithoutWallboxInWatts=$( echo "${homeOwnConsumptionInWatts} - ${eBoxCurrentInAmps} * 230.0" | bc )
