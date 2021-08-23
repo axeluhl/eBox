@@ -90,7 +90,9 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       echo "Max current per phase:    ${maxCurrentPerPhase}A"
       integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' | sed -e 's/^$/0/' )
       echo "Integer max cur./phase:   ${integerMaxCurrentPerPhaseInAmps}"
-      if [ ${integerMaxCurrentPerPhaseInAmps} -le 0 ]; then
+      # Anything less than at least half the minimum current possible (6A) shall not lead to car charging as it would
+      # drain the home battery
+      if [ ${integerMaxCurrentPerPhaseInAmps} -le 2 ]; then
         effectiveMaxCurrentPerPhaseInAmps=0
       elif [ ${integerMaxCurrentPerPhaseInAmps} -le 6 ]; then
         effectiveMaxCurrentPerPhaseInAmps=6
