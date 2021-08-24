@@ -45,7 +45,7 @@ The second and third crontab entries then looks like this:
 
 ```
 * * * * *	/usr/local/bin/ebox_modbusquery.py >/var/log/ebox_modbusquery.out 2>/var/log/ebox_modbusquery.err
-*/5 * * * *	/usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control
+* * * * *	/usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control
 ```
 
 where the ``ebox_modbusquery.py`` script logs the Innogy/E.ON eBox Professional's Modbus values to InfluxDB, and the ``ebox_control.sh`` script uses the InfluxDB content to configure the maximum power allowed for the eBox, reading configuration data---particularly on the strategy to use---from ``/etc/ebox_defaults.conf``.
