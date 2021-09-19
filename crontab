@@ -1,3 +1,5 @@
 * * * * *	/usr/local/bin/kostal_modbusquery.py 12 5 >/var/log/kostal_modbusquery.out 2>/var/log/kostal_modbusquery.err
 * * * * *	/usr/local/bin/ebox_modbusquery.py >/var/log/ebox_modbusquery.out 2>/var/log/ebox_modbusquery.err
+0 18 * * *      /usr/local/bin/forecast_solar.sh 49 8 45 10 9.6 evening_forecast yourinfluxhost.example.com kostal >/var/log/forecast_solar.out 2>/var/log/forecast_solar.err
+0 6 * * *	/usr/local/bin/forecast_solar.sh 49 8 45 10 9.6 morning_forecast yourinfluxhost.example.com kostal >/var/log/forecast_solar.out 2>/var/log/forecast_solar.err
 * * * * *	sleep 10; /usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control

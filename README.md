@@ -3,14 +3,19 @@ Python and Bash example scripts that combine a photovoltaic solar generator, inv
 
 TL;DR:
 
-Ensure an InfluxDB is installed where the host on which you're doing this can access it and where a new ``kostal`` DB can be created. Then
+Ensure an InfluxDB is installed where the host on which you're doing this can access it and where a new ``kostal`` DB can be created.
+
+In the scripts under eBox/usr/local/bin and in crontab replace ``yourinfluxhost.example.com`` with the hostname or IP address of the host where your InfluxDB is running, ``yourebox.example.com`` with the hostname or IP address of your Innogy/E.ON eBox Professional, and ``yourkostalinverter.example.com`` with the hostname or IP address of your Kostal inverter. Make sure to have Modbus enabled on your Kostal inverter and your eBox Pro. If your ports deviate from 1502 and 5555, respectively, adjust them in the ``eBox/usr/local/bin/kostal_modbusquery.py`` / ``eBox/usr/local/bin/ebox_modbusquery.py`` / ``ebox/usr/local/bin/ebox_write.py`` scripts, respectively.
+
+You may also want to adjust your latitude, longitude and PV parameters in the calls to /usr/local/bin/forecast_solar.sh in crontab so they match your location and PV parameters as the defaults of 49N 8E with 45deg inclination, 10deg off south and a peak power of 9.6kWp may not match your installation.
+
+Then
 ```
-git clone git@github.wdf.sap.corp:d043530/eBox.git
+git clone git@github.com:axeluhl/eBox.git
 sudo ln -s eBox/usr/local/bin/* /usr/local/bin
 sudo ln -s eBox/etc* /etc
 sudo echo "$( crontab -l; cat crontab )" | crontab -
 ```
-In the scripts under eBox/usr/local/bin replace ``yourinfluxhost.example.com`` with the hostname or IP address of the host where your InfluxDB is running, ``yourebox.example.com`` with the hostname or IP address of your Innogy/E.ON eBox Professional, and ``yourkostalinverter.example.com`` with the hostname or IP address of your Kostal inverter. Make sure to have Modbus enabled on your Kostal inverter and your eBox Pro. If your ports deviate from 1502 and 5555, respectively, adjust them in the ``eBox/usr/local/bin/kostal_modbusquery.py`` / ``eBox/usr/local/bin/ebox_modbusquery.py`` / ``ebox/usr/local/bin/ebox_write.py`` scripts, respectively.
 
 Use ``/usr/local/bin/ebox_default_strategy.sh`` to adjust your charging strategy:
 ```
