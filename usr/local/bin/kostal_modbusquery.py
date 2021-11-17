@@ -58,7 +58,7 @@ class kostal_modbusquery:
         self.Adr.append([46, "Software-Version IO-Controller (IOC)", "Strg8", 0])
         self.Adr.append([56, "Inverter state", "U16_2", 0])
         self.Adr.append([100, "Total DC power", "Float", 0])
-        self.Adr.append([104, "State of energy manager", "Float", 0])
+        self.Adr.append([104, "State of energy manager", "U32", 0])
         self.Adr.append([106, "Home own consumption from battery", "Float", 0])
         self.Adr.append([108, "Home own consumption from grid", "Float", 0])
         self.Adr.append([110, "Total home consumption PV", "Float", 0])
@@ -208,7 +208,7 @@ class kostal_modbusquery:
     # Routine to read a U32 from one address with 2 registers 
     def ReadU32(self,myadr_dec):
         r1=self.client.read_holding_registers(myadr_dec,2,unit=71)
-        U32register = BinaryPayloadDecoder.fromRegisters(r1.registers, byteorder=Endian.Big, wordorder=Endian.Little)
+        U32register = BinaryPayloadDecoder.fromRegisters(r1.registers, byteorder=Endian.Big, wordorder=Endian.Big)
         result_U32register = U32register.decode_32bit_float()
         return(result_U32register)
     #-----------------------------------------
