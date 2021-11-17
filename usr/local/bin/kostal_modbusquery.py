@@ -209,7 +209,7 @@ class kostal_modbusquery:
     def ReadU32(self,myadr_dec):
         r1=self.client.read_holding_registers(myadr_dec,2,unit=71)
         U32register = BinaryPayloadDecoder.fromRegisters(r1.registers, byteorder=Endian.Big, wordorder=Endian.Big)
-        result_U32register = U32register.decode_32bit_float()
+        result_U32register = U32register.decode_32bit_uint()
         return(result_U32register)
     #-----------------------------------------
     # Routine to read a S16 from one address with 2 registers 
