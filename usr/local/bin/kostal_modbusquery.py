@@ -58,7 +58,7 @@ class kostal_modbusquery:
         self.Adr.append([46, "Software-Version IO-Controller (IOC)", "Strg8", 0])
         self.Adr.append([56, "Inverter state", "U16_2", 0])
         self.Adr.append([100, "Total DC power", "Float", 0])
-        self.Adr.append([104, "State of energy manager", "U32", 0])
+        self.Adr.append([104, "State of energy manager U32", "U32", 0])
         self.Adr.append([106, "Home own consumption from battery", "Float", 0])
         self.Adr.append([108, "Home own consumption from grid", "Float", 0])
         self.Adr.append([110, "Total home consumption PV", "Float", 0])
