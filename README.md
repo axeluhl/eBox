@@ -82,3 +82,8 @@ Algorithm sketch:
 - remember original state of interval before blocking, and remember which intervals (up to two; the current and the next, or the previous and the current) have been blocked
 - if wallbox power is below threshold, revert to original blocking state and remove interval from set of blocked intervals
 - revert any interval updated and expired to its original state and remove interval from set of blocked intervals
+
+Additional features:
+
+- Stopping this, reverting all intervals blocked to their original state immediately
+- (Re-)starting this as a cron job / loop running in the background somehow
