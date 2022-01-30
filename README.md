@@ -60,3 +60,25 @@ Additionally, there is a script ``ebox_default_strategy.sh`` that outputs or upd
 ## Grafana
 
 I use Grafana to monitor PV and wallbox. Not being a Grafana expert, the best I could come up with so far in order to share the dashboards I've assembled was exporting them as JSON files. You can find them in the ``grafana/`` folder. My take is that to make those work for you, you'd have to create an InfluxDB data source in your Grafana installation that uses the ``kostal`` DB that the scripts write to. It also seems that during importing the dashboard JSON files, Grafana allows you to bind the data source. Let me know how this works for you.
+
+## Thoughts on Disabling Battery Discharge upon High Wallbox Demand
+
+Especially during the winter time it is quite frustrating to see the car being plugged in when the PV production is close to nothing and the home battery is filled well. Then, the car sucks energy from the home battery with 3.7kW for our PHEV, and much more (up to 22kW in the future) if we open up the wallbox from its 11kW to its full 22kW and use it to charge a BEV with it. Despite not having been able to derive it from my inverter's stats, I surmise that drawing power from the home battery at high rates may have a number of disadvantages. It may create greater losses than when discharging at smaller rates. And it may wear the battery in fewer cycles.
+
+As a first solution I've come up with a script https://github.com/axeluhl/kostal-RESTAPI/blob/master/kostal-noDischarge which disables home battery discharge for a configurable duration. When combined with, e.g., ``ebox_control.sh 0`` (the "full throttle" strategy), it may be used to disable home battery discharge for an estimated duration of high-power car charging. But this is flawed in several ways: users have to remember to use it, especially during winter where "full throttle" is the default strategy set for the wallbox; then, users would have to calculate the duration of high power charging expected as towards the end of the charging cycle the car reduces the charging power, and charging duration of course depends on the car battery's SOC.
+
+Instead, I'd like to have a logic in place that observes the wallbox power and disables home battery discharge temporarily during the times when high wallbox charging powers (above a threshold configurable) are observed. This, however, comes with a few challenges:
+
+- Wallbox read-outs arrive every minute with the current cron job, but inverter battery control works based on 15 minute slots
+- Inverter users may have configured a charging/discharging blocking pattern that they don't want to get permanently overwritten
+- We don't want short unblock / block cycles at interval boundaries, e.g., because a 15 minute interval ends and the it takes a few seconds for a cron job to react in order to block the next 15 minutes interval
+
+This implies that any modification applied to the charging/discharging blocking state needs to have the original state recorded and needs to revert to that state after the interval is over or the wallbox-implied power consumption has decreased below a threshold specified.
+
+Algorithm sketch:
+
+- read out wallbox power
+- if wallbox power exceeds threshold, ensure discharging home battery is blocked for the current time and already at least one minute ahead of time for the next upcoming 15 minutes interval (because the next read-out may happen after the next interval has already begun)
+- remember original state of interval before blocking, and remember which intervals (up to two; the current and the next, or the previous and the current) have been blocked
+- if wallbox power is below threshold, revert to original blocking state and remove interval from set of blocked intervals
+- revert any interval updated and expired to its original state and remove interval from set of blocked intervals
