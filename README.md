@@ -78,12 +78,32 @@ This implies that any modification applied to the charging/discharging blocking 
 Algorithm sketch:
 
 - read out wallbox power
-- if wallbox power exceeds threshold, ensure discharging home battery is blocked for the current time and already at least one minute ahead of time for the next upcoming 15 minutes interval (because the next read-out may happen after the next interval has already begun)
+- if wallbox power exceeds threshold:
+  - block current interval (meaning current and next if next is less than a minute away)
 - remember original state of interval before blocking, and remember which intervals (up to two; the current and the next, or the previous and the current) have been blocked
-- if wallbox power is below threshold, revert to original blocking state and remove interval from set of blocked intervals
-- revert any interval updated and expired to its original state and remove interval from set of blocked intervals
+- if wallbox power is below threshold, revert all intervals to original blocking state and remove intervals from set of blocked intervals
+- revert any interval that was blocked and now has expired to its original state and remove interval from set of blocked intervals
 
 Additional features:
 
 - Stopping this, reverting all intervals blocked to their original state immediately
 - (Re-)starting this as a cron job / loop running in the background somehow
+
+Breaking things down to smaller functions:
+
+- data structure for intervals blocked including their original state and how it is stored in the FS
+- check if interval has expired
+- restoring interval to original state and purge interval after it has been restored
+- record original state of interval
+- block interval in inverter
+- check if timestamp is less than one minute (the wallbox sampling interval) away from next interval
+- check if interval has already been blocked before, with original state recorded
+
+While in the https://github.com/axeluhl/kostal-RESTAPI/blob/master/kostal-noDischarge script the state to which to revert is stored in a background task it seems more appropriate here to use the file system to keep track of the state. Something under /var/cache or /var/run may be adequate. The persistent state needs to keep track of the intervals blocked and their original state. A mechanism is needed to map this to the blocking state-describing JSON documents of the form
+
+```
+$ kostal-RESTAPI -ReadBatteryTimeControl 1
+{"Battery:TimeControl:ConfThu": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfWed": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfMon": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022", "Battery:TimeControl:ConfFri": "000000000000000000000000000000000000000000000000000000000000000000000000002222222222222222000000", "Battery:TimeControl:ConfSat": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfSun": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfTue": "222222222222220000000000000000000000000000000000000000000000000000000000000000000000000000000000"}
+```
+
+where each digit represents a 15 minute interval on the day identified by the ``Conf...`` field name. The kostal-RESTAPI.py script contains a method called ``getUpdatedTimeControls`` which handles some mapping between time stamps and the string handling for weekdays as well as the daily digit strings. It deals with 15 minutes intervals, can map time points to their weekday and interval and can manipulate a digit string by mapping the interval to its corresponding digit in the string. This functionality should be extracted and then be used in order to manage blocking and state recording and restoring by interval.
