@@ -107,3 +107,17 @@ $ kostal-RESTAPI -ReadBatteryTimeControl 1
 ```
 
 where each digit represents a 15 minute interval on the day identified by the ``Conf...`` field name. The kostal-RESTAPI.py script contains a method called ``getUpdatedTimeControls`` which handles some mapping between time stamps and the string handling for weekdays as well as the daily digit strings. It deals with 15 minutes intervals, can map time points to their weekday and interval and can manipulate a digit string by mapping the interval to its corresponding digit in the string. This functionality should be extracted and then be used in order to manage blocking and state recording and restoring by interval.
+
+An interval could be modeled as an object identifying a time point and an interval length. Assuming that intervals start at time points whose time of the day divides evenly by the interval duration, the day of week and the index in the digit string with each digit representing an interval during the day of week can be inferred. Additionally, the interval object should have a field capturing its original state and whether it was blocked.
+
+Fields Operations an interval object could support, are:
+- constructor(timepoint:timepoint); builds an interval for the timepoint specified that has blocked=false and originalState=null
+- constructor(timepoint:timepoint, blocked:boolean, originalState:char); builds an interval that may optionally be initialized as blocked, with an original state; this may be used, e.g., to parse a file system representation of such an interval into a runtime object
+- timepoint:timepoint
+- originalState:char (0, 1, 2, null)
+- blocked:boolean
+- block(new_state:char); blocks this interval with the new_state (e.g., 2) and if it wasn't marked as blocked yet records the original state in originalState and sets the blocked field to true
+- revert(); reverts the interval to its originalState and sets blocked to false
+- getStart():timepoint; returns the start time point of this interval
+- getEnd():timepoint; returns the end time point of this interval
+- isExpired():boolean; tells if get_end() is after the current point in time
