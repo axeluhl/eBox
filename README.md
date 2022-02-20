@@ -60,3 +60,64 @@ Additionally, there is a script ``ebox_default_strategy.sh`` that outputs or upd
 ## Grafana
 
 I use Grafana to monitor PV and wallbox. Not being a Grafana expert, the best I could come up with so far in order to share the dashboards I've assembled was exporting them as JSON files. You can find them in the ``grafana/`` folder. My take is that to make those work for you, you'd have to create an InfluxDB data source in your Grafana installation that uses the ``kostal`` DB that the scripts write to. It also seems that during importing the dashboard JSON files, Grafana allows you to bind the data source. Let me know how this works for you.
+
+## Thoughts on Disabling Battery Discharge upon High Wallbox Demand
+
+Especially during the winter time it is quite frustrating to see the car being plugged in when the PV production is close to nothing and the home battery is filled well. Then, the car sucks energy from the home battery with 3.7kW for our PHEV, and much more (up to 22kW in the future) if we open up the wallbox from its 11kW to its full 22kW and use it to charge a BEV with it. Despite not having been able to derive it from my inverter's stats, I surmise that drawing power from the home battery at high rates may have a number of disadvantages. It may create greater losses than when discharging at smaller rates. And it may wear the battery in fewer cycles.
+
+As a first solution I've come up with a script https://github.com/axeluhl/kostal-RESTAPI/blob/master/kostal-noDischarge which disables home battery discharge for a configurable duration. When combined with, e.g., ``ebox_control.sh 0`` (the "full throttle" strategy), it may be used to disable home battery discharge for an estimated duration of high-power car charging. But this is flawed in several ways: users have to remember to use it, especially during winter where "full throttle" is the default strategy set for the wallbox; then, users would have to calculate the duration of high power charging expected as towards the end of the charging cycle the car reduces the charging power, and charging duration of course depends on the car battery's SOC.
+
+Instead, I'd like to have a logic in place that observes the wallbox power and disables home battery discharge temporarily during the times when high wallbox charging powers (above a threshold configurable) are observed. This, however, comes with a few challenges:
+
+- Wallbox read-outs arrive every minute with the current cron job, but inverter battery control works based on 15 minute slots
+- Inverter users may have configured a charging/discharging blocking pattern that they don't want to get permanently overwritten
+- We don't want short unblock / block cycles at interval boundaries, e.g., because a 15 minute interval ends and then it takes a few seconds for a cron job to react in order to block the next 15 minutes interval
+
+This implies that any modification applied to the charging/discharging blocking state needs to have the original state recorded and needs to revert to that state after the interval is over or the wallbox-implied power consumption has decreased below a threshold specified.
+
+Algorithm sketch:
+
+- read out wallbox power
+- if wallbox power exceeds threshold:
+  - block current interval (meaning current and next if next is less than a minute away)
+- remember original state of interval before blocking, and remember which intervals (up to two; the current and the next, or the previous and the current) have been blocked
+- if wallbox power is below threshold, revert all intervals to original blocking state and remove intervals from set of blocked intervals
+- revert any interval that was blocked and now has expired to its original state and remove interval from set of blocked intervals
+
+Additional features:
+
+- Stopping this, reverting all intervals blocked to their original state immediately
+- (Re-)starting this as a cron job / loop running in the background somehow
+
+Breaking things down to smaller functions:
+
+- data structure for intervals blocked including their original state and how it is stored in the FS
+- check if interval has expired
+- restoring interval to original state and purge interval after it has been restored
+- record original state of interval
+- block interval in inverter
+- check if timestamp is less than one minute (the wallbox sampling interval) away from next interval
+- check if interval has already been blocked before, with original state recorded
+
+While in the https://github.com/axeluhl/kostal-RESTAPI/blob/master/kostal-noDischarge script the state to which to revert is stored in a background task it seems more appropriate here to use the file system to keep track of the state. Something under /var/cache or /var/run may be adequate. The persistent state needs to keep track of the intervals blocked and their original state. A mechanism is needed to map this to the blocking state-describing JSON documents of the form
+
+```
+$ kostal-RESTAPI -ReadBatteryTimeControl 1
+{"Battery:TimeControl:ConfThu": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfWed": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfMon": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022", "Battery:TimeControl:ConfFri": "000000000000000000000000000000000000000000000000000000000000000000000000002222222222222222000000", "Battery:TimeControl:ConfSat": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfSun": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "Battery:TimeControl:ConfTue": "222222222222220000000000000000000000000000000000000000000000000000000000000000000000000000000000"}
+```
+
+where each digit represents a 15 minute interval on the day identified by the ``Conf...`` field name. The kostal-RESTAPI.py script contains a method called ``getUpdatedTimeControls`` which handles some mapping between time stamps and the string handling for weekdays as well as the daily digit strings. It deals with 15 minutes intervals, can map time points to their weekday and interval and can manipulate a digit string by mapping the interval to its corresponding digit in the string. This functionality should be extracted and then be used in order to manage blocking and state recording and restoring by interval.
+
+An interval could be modeled as an object identifying a time point and an interval length. Assuming that intervals start at time points whose time of the day divides evenly by the interval duration, the day of week and the index in the digit string with each digit representing an interval during the day of week can be inferred. Additionally, the interval object should have a field capturing its original state and whether it was blocked.
+
+Fields Operations an interval object could support, are:
+- constructor(timepoint:timepoint); builds an interval for the timepoint specified that has blocked=false and originalState=null
+- constructor(timepoint:timepoint, blocked:boolean, originalState:char); builds an interval that may optionally be initialized as blocked, with an original state; this may be used, e.g., to parse a file system representation of such an interval into a runtime object
+- timepoint:timepoint
+- originalState:char (0, 1, 2, null)
+- blocked:boolean
+- getStart():timepoint; returns the start time point of this interval
+- getEnd():timepoint; returns the end time point of this interval
+- isExpired():boolean; tells if getEnd() is after the current point in time
+- block(new_state:char); blocks this interval with the new_state (e.g., 2) and if it wasn't marked as blocked yet records the original state in originalState and sets the blocked field to true
+- revert(); reverts the interval to its originalState and sets blocked to false

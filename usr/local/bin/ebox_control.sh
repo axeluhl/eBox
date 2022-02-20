@@ -1,4 +1,12 @@
 #!/bin/bash
+# For regular (typically every minute) execution, e.g., through a cron job.
+# Reads the config file and if a balanced strategy is used adjusts the maximum
+# wallbox charging power according to excess power available.
+# Furthermore, home battery discharging may be blocked if the wallbox charging power exceeds the value
+# provided in the BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS configuration variable.
+# To disable this blocking behavior, set BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS
+# to a charging power value your wallbox may never exceed, e.g., 500000 (Watts)
+#
 # Strategy 0: full throttle
 # Strategy 1: split excess PV energy evenly between home battery and wallbox: (PV production - Home Usage + Wallbox)/2
 # Special cases:
@@ -106,5 +114,15 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
     echo "Effective max cur./phase: ${effectiveMaxCurrentPerPhaseInAmps}A"
     logger -t ebox_control "Setting maximum current per phase for eBox wallbox to ${effectiveMaxCurrentPerPhaseInAmps}A"
     `dirname "${0}"`/ebox_write.py ${effectiveMaxCurrentPerPhaseInAmps} ${effectiveMaxCurrentPerPhaseInAmps} ${effectiveMaxCurrentPerPhaseInAmps}
+    if [ -n "${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}" ]; then
+      integerEBoxPowerInWatts=$( echo "${eBoxPowerInWatts}" | sed -e 's/\..*$//' )
+      if [ ${integerEBoxPowerInWatts} -gt ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS} ]; then
+        logger -t ebox_control "Blocking home battery discharge because wallbox power (${integerEBoxPowerInWatts}W) exceeds ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W"
+        kostal-interval.py block
+      else
+        logger -t ebox_control "Allowing home battery to discharge because wallbox power (${integerEBoxPowerInWatts}W) does not exceed ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W"
+        kostal-interval.py revert
+      fi
+    fi
   done
 done
