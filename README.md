@@ -38,7 +38,7 @@ Usage: /usr/local/bin/ebox_control.sh [ -s <STRATEGY> ] [ -m <MAX_HOME_BATTERY_C
 
 As an owner of a photovoltaic (PV) solar generator with a Kostal Plenticore 8.5 inverter and a BYD battery I recently participated in the SAP Charge@Home program and ordered a plugin hybrid electric vehicle (PHEV). After some hassle with the wallbox ordering and installation process (see also related JAM articles) I finally have a set-up that allows me to play with logging, charting, controlling and automating things.
 
-One recent goal was controlling the wallbox's power output based on PV output and home battery state. I've played with a bit of Bash and Python scripting to come up with a first solution that provides some utility to me. I'm sharing it here for anyone to use, copy, augment, extend and improve. No warranty, no nothing. You brick your eBox or you BBQ your inverter...? Don't blame me.
+One recent goal was controlling the wallbox's power output based on PV output and home battery state. Furthermore, I wanted to block home battery discharging in case the wallbox power exceeds a certain threshold because then, over time, home battery wear and losses would be greater than desirable. I've played with a bit of Bash and Python scripting to come up with a first solution that provides some utility to me. I'm sharing it here for anyone to use, copy, augment, extend and improve. No warranty, no nothing. You brick your eBox or you BBQ your inverter...? Don't blame me.
 
 My set-up consists of an InfluxDB to which I'm logging my Kostal inverter's Modbus values every five seconds, triggered by a cron job that runs every minute and repeats twelve times, every five seconds. The crontab line could look something like this:
 
@@ -53,9 +53,11 @@ The second and third crontab entries then looks like this:
 * * * * *	/usr/local/bin/ebox_control.sh 2>/var/log/ebox_control.err | logger -t ebox_control
 ```
 
-where the ``ebox_modbusquery.py`` script logs the Innogy/E.ON eBox Professional's Modbus values to InfluxDB, and the ``ebox_control.sh`` script uses the InfluxDB content to configure the maximum power allowed for the eBox, reading configuration data---particularly on the strategy to use---from ``/etc/ebox_defaults.conf``.
+where the ``ebox_modbusquery.py`` script logs the Innogy/E.ON eBox Professional's Modbus values to InfluxDB, and the ``ebox_control.sh`` script uses the InfluxDB content to configure the maximum power allowed for the eBox, reading configuration data---particularly on the strategy to use---from ``/etc/ebox_defaults.conf``. The BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS property in the file controls the wallbox power output threshold above which home battery discharging will be blocked by the ``ebox_control.sh`` script. Remove the property if you want to disable this behavior. It currently defaults to 2000W.
 
 Additionally, there is a script ``ebox_default_strategy.sh`` that outputs or updates the strategy in ``/etc/ebox_defaults.conf`` for granting energy to the wallbox. I created a group ``ebox`` who is the group owner of ``/etc/ebox_defaults.conf`` with that file being group-writable, so that members of that group can run ``ebox_default_strategy.sh`` to update the ``STRATEGY`` variable in that file from where ``ebox_control.sh`` picks it up.
+
+For home battery discharge blocking there is a dependency on [https://github.com/axeluhl/kostal-RESTAPI](https://github.com/axeluhl/kostal-RESTAPI), in particular the ``kostal-interval.py`` script. It helps with blocking discharging for time intervals, recording the corresponding state in a file, and reverting the blocking if it is no longer required. If you don't want this behavior, or you don't have the script linked to a typical PATH directory such as ``/usr/local/bin``, remove the BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS property from ``/etc/ebox_defaults.conf``.
 
 ## Grafana
 
