@@ -63,7 +63,9 @@ For home battery discharge blocking there is a dependency on [https://github.com
 
 I use Grafana to monitor PV and wallbox. Not being a Grafana expert, the best I could come up with so far in order to share the dashboards I've assembled was exporting them as JSON files. You can find them in the ``grafana/`` folder. My take is that to make those work for you, you'd have to create an InfluxDB data source in your Grafana installation that uses the ``kostal`` DB that the scripts write to. It also seems that during importing the dashboard JSON files, Grafana allows you to bind the data source. Let me know how this works for you.
 
-## Thoughts on Disabling Battery Discharge upon High Wallbox Demand
+## Thoughts on Designing Disabling Battery Discharge upon High Wallbox Demand
+
+The following thoughts have led to the ``kostal-interval.py`` script that is now used by the ``ebox_control.sh`` script to control blocking / unblocking of the home battery discharging based on the wallbox current output power.
 
 Especially during the winter time it is quite frustrating to see the car being plugged in when the PV production is close to nothing and the home battery is filled well. Then, the car sucks energy from the home battery with 3.7kW for our PHEV, and much more (up to 22kW in the future) if we open up the wallbox from its 11kW to its full 22kW and use it to charge a BEV with it. Despite not having been able to derive it from my inverter's stats, I surmise that drawing power from the home battery at high rates may have a number of disadvantages. It may create greater losses than when discharging at smaller rates. And it may wear the battery in fewer cycles.
 
