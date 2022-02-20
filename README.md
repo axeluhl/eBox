@@ -71,7 +71,7 @@ Instead, I'd like to have a logic in place that observes the wallbox power and d
 
 - Wallbox read-outs arrive every minute with the current cron job, but inverter battery control works based on 15 minute slots
 - Inverter users may have configured a charging/discharging blocking pattern that they don't want to get permanently overwritten
-- We don't want short unblock / block cycles at interval boundaries, e.g., because a 15 minute interval ends and the it takes a few seconds for a cron job to react in order to block the next 15 minutes interval
+- We don't want short unblock / block cycles at interval boundaries, e.g., because a 15 minute interval ends and then it takes a few seconds for a cron job to react in order to block the next 15 minutes interval
 
 This implies that any modification applied to the charging/discharging blocking state needs to have the original state recorded and needs to revert to that state after the interval is over or the wallbox-implied power consumption has decreased below a threshold specified.
 
@@ -116,8 +116,8 @@ Fields Operations an interval object could support, are:
 - timepoint:timepoint
 - originalState:char (0, 1, 2, null)
 - blocked:boolean
-- block(new_state:char); blocks this interval with the new_state (e.g., 2) and if it wasn't marked as blocked yet records the original state in originalState and sets the blocked field to true
-- revert(); reverts the interval to its originalState and sets blocked to false
 - getStart():timepoint; returns the start time point of this interval
 - getEnd():timepoint; returns the end time point of this interval
-- isExpired():boolean; tells if get_end() is after the current point in time
+- isExpired():boolean; tells if getEnd() is after the current point in time
+- block(new_state:char); blocks this interval with the new_state (e.g., 2) and if it wasn't marked as blocked yet records the original state in originalState and sets the blocked field to true
+- revert(); reverts the interval to its originalState and sets blocked to false
