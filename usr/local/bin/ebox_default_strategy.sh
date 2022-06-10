@@ -20,5 +20,5 @@ else
     chgrp ebox "${CONFIG_FILE}"
     chmod 664 "${CONFIG_FILE}"
   fi
-  logger -t ebox_default_strategy.sh "User `whoami` set eBox charging strategy to ${1}"
+  logger -t ${0} "User `whoami` set eBox charging strategy to ${1}"
 fi
