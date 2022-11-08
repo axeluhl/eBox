@@ -260,18 +260,18 @@ class kostal_modbusquery:
 
 if __name__ == "__main__":  
   my_parser = argparse.ArgumentParser()
-  my_parser.add_argument('--inverter', default='kostal.axeluhl.de',
-                      help='The host name or IP address of your inverter')
+  my_parser.add_argument('--inverter', default='kostal',
+                      help='The host name or IP address of your inverter; defaults to "kostal"')
   my_parser.add_argument('--modbusport', default='1502',
-                      help='The Modbus port of your inverter')
+                      help='The Modbus port of your inverter; defaults to 1502')
   my_parser.add_argument('--influx', default='klo.axeluhl.de',
-                      help='The host name or IP address where your InfluxDB database for storing your inverter values is running')
+                      help='The host name or IP address where your InfluxDB database for storing your inverter values is running; defaults to "klo.axeluhl.de"')
   my_parser.add_argument('--db', default='kostal',
-                      help='The InfluxDB database name for storing your inverter values')
+                      help='The InfluxDB database name for storing your inverter values; defaults to "kostal"')
   my_parser.add_argument('repetitions', nargs='?', default='1',
-                      help='The number of times to poll the Modbus values')
+                      help='The number of times to poll the Modbus values; defaults to 1')
   my_parser.add_argument('intervalInSeconds', nargs='?', default='0',
-                      help='The time between polling the Modbus values')
+                      help='The time between polling the Modbus values; defaults to 0')
   args = vars(my_parser.parse_args())
   repetitions=int(args['repetitions'])
   intervalInSeconds=int(args['intervalInSeconds'])
