@@ -36,6 +36,7 @@
 # Please change the IP address of your Inverter (e.g. 192.168.178.41 and Port (default 1502) to suite your environment - see below)
 #
 import pymodbus
+import argparse
 import time
 import sys
 import datetime
@@ -47,10 +48,10 @@ from pymodbus.payload import BinaryPayloadDecoder
 from influxdb import InfluxDBClient
 
 class kostal_modbusquery:
-    def __init__(self):
+    def __init__(self, inverter, port):
         # Change the IP address and port to suite your environment:
-        self.inverter_ip='yourkostalinverter.example.com'
-        self.inverter_port="1502"
+        self.inverter_ip=inverter
+        self.inverter_port=port
         # No more changes required beyond this point
         self.KostalRegister = []
         self.Adr = []
@@ -258,18 +259,28 @@ class kostal_modbusquery:
 
 
 if __name__ == "__main__":  
-  if len(sys.argv) <= 1:
-    repetitions=1
-    intervalInSeconds=0
-  else:
-    repetitions=int(sys.argv[1])
-    intervalInSeconds=int(sys.argv[2])
+  my_parser = argparse.ArgumentParser()
+  my_parser.add_argument('--inverter', default='kostal.axeluhl.de',
+                      help='The host name or IP address of your inverter')
+  my_parser.add_argument('--modbusport', default='1502',
+                      help='The Modbus port of your inverter')
+  my_parser.add_argument('--influx', default='klo.axeluhl.de',
+                      help='The host name or IP address where your InfluxDB database for storing your inverter values is running')
+  my_parser.add_argument('--db', default='kostal',
+                      help='The InfluxDB database name for storing your inverter values')
+  my_parser.add_argument('repetitions', nargs='?', default='1',
+                      help='The number of times to poll the Modbus values')
+  my_parser.add_argument('intervalInSeconds', nargs='?', default='0',
+                      help='The time between polling the Modbus values')
+  args = vars(my_parser.parse_args())
+  repetitions=int(args['repetitions'])
+  intervalInSeconds=int(args['intervalInSeconds'])
   for i in range(0, repetitions):
     start=time.time()
     print ("Starting QUERY #"+str(i+1)+"...")
     try:
         Kostalvalues =[]
-        Kostalquery = kostal_modbusquery()
+        Kostalquery = kostal_modbusquery(args['inverter'], int(args['modbusport']))
         Kostalquery.run()
     except Exception as ex:
         print (traceback.format_exc())
@@ -310,8 +321,8 @@ if __name__ == "__main__":
     influx_json_body[0]["fields"]['PV production'] = LeftSidePowerGeneration
     influx_json_body[0]["fields"]['Battery Charge'] = BatteryCharge
     print ("The data is: ", influx_json_body)
-    influx_client = InfluxDBClient(host='yourinfluxhost.example.com', database='kostal')
-    influx_client.create_database('kostal')
+    influx_client = InfluxDBClient(host=args['influx'], database=args['db'])
+    influx_client.create_database(args['db'])
     try:
         if not influx_client.write_points(influx_json_body, time_precision='s'):
             print ("Some problem (but no exception) inserting data into InfluxDB")
