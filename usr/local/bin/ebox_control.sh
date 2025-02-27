@@ -105,8 +105,8 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
         effectiveMaxCurrentPerPhaseInAmps=0
       elif [ ${integerMaxCurrentPerPhaseInAmps} -le 6 ]; then
         effectiveMaxCurrentPerPhaseInAmps=6
-      elif [ ${integerMaxCurrentPerPhaseInAmps} -ge 50 ]; then
-        effectiveMaxCurrentPerPhaseInAmps=50
+      elif [ ${integerMaxCurrentPerPhaseInAmps} -ge ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50} ]; then
+        effectiveMaxCurrentPerPhaseInAmps=${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50}
       else
         effectiveMaxCurrentPerPhaseInAmps=${maxCurrentPerPhase}
       fi
