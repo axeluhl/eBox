@@ -120,6 +120,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
         logger -t ebox_control "Blocking home battery discharge because wallbox power (${integerEBoxPowerInWatts}W) exceeds ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
         kostal-interval.py block | logger -t ebox_control
       else
+        # TODO if the battery was blocked for this interval, e.g., to save battery capacity for noon time, keep it at that!
         logger -t ebox_control "Allowing home battery to discharge because wallbox power (${integerEBoxPowerInWatts}W) does not exceed ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
         kostal-interval.py revert | logger -t ebox_control
       fi
