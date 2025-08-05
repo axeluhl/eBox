@@ -25,6 +25,7 @@ else
   MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS=5560
   MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50
   SOC_THRESHOLD_FOR_FULL_EXCESS=98
+  MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
 fi
 # Command line option handling:
 options=':s:p:mh'
@@ -65,7 +66,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
 
     if [ "${STRATEGY}" = "0" ]; then
       echo "Strategy 0: full throttle, ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS}A"
-      effectiveMaxCurrentPerPhaseInAmps=${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS}
+      effectiveMaxCurrentPerPhaseInAmps=(${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS})
     else
       if [ "${STRATEGY}" = "1" ]; then
         echo "Strategy 1:"
@@ -94,26 +95,46 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
         exit 1
       fi
       echo "Allowed eBox Power:       ${eBoxAllowedPowerInWatts}W"
+      maxTotalCurrent=$( echo "scale=2
+                         ${eBoxAllowedPowerInWatts} / 230" | bc )
       maxCurrentPerPhase=$( echo "scale=2
                             ${eBoxAllowedPowerInWatts} / 230 / ${NUMBER_OF_PHASES_USED_FOR_CHARGING}" | bc )
       echo "Max current per phase:    ${maxCurrentPerPhase}A"
+      echo "Max total current:        ${maxTotalCurrent}A"
+      integerMaxTotalCurrent=$( echo "${maxTotalCurrent}" | sed -e 's/\..*$//' | sed -e 's/^-\?$/0/' )
       integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' | sed -e 's/^-\?$/0/' )
       echo "Integer max cur./phase:   ${integerMaxCurrentPerPhaseInAmps}"
-      # Anything less than at least half the minimum current possible (6A) shall not lead to car charging as it would
-      # drain the home battery
-      if [ ${integerMaxCurrentPerPhaseInAmps} -le 2 ]; then
-        effectiveMaxCurrentPerPhaseInAmps=0
-      elif [ ${integerMaxCurrentPerPhaseInAmps} -le 6 ]; then
-        effectiveMaxCurrentPerPhaseInAmps=6
-      elif [ ${integerMaxCurrentPerPhaseInAmps} -ge ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50} ]; then
-        effectiveMaxCurrentPerPhaseInAmps=${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50}
+      # Anything less than at least half the minimum current possible (6A/2=3A) on a single phase only
+      # shall not lead to car charging as it would drain the home battery. Between a total maximum current
+      # of 6A up to 12A we have to charge on a single phase. On 12A up to 18A we can charge on up to two phases,
+      # limited by ${NUMBER_OF_PHASES_USED_FOR_CHARGING}, and beyond 18A we can charge on up to three phases,
+      # again limited by ${NUMBER_OF_PHASES_USED_FOR_CHARGING}.
+      HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=$(( MINIMUM_CURRENT_PER_PHASE_IN_AMPS / 2 ))
+      echo "Minimum current per phase: ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A; half minimum current per phase: ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=}A"
+      if [ ${integerMaxTotalCurrent} -lt ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
+        echo "Less than half minimum current on single phase (${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A); stopping charge"
+        effectiveMaxCurrentPerPhaseInAmps=(0 0 0)
+      elif [ ${integerMaxTotalCurrent} -lt ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
+        echo "Using minimum current on single phase"
+        effectiveMaxCurrentPerPhaseInAmps=(${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} 0 0)
+      elif [ ${NUMBER_OF_PHASES_USED_FOR_CHARGING} -le 1 -o ${integerMaxTotalCurrent} -lt $(( 2 * ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} )) ]; then
+        echo "Restricting charging to one phase"
+        effectiveMaxCurrentPerPhaseInAmps=(${maxTotalCurrent} 0 0)
+      elif [ ${NUMBER_OF_PHASES_USED_FOR_CHARGING} -le 2 -o ${integerMaxTotalCurrent} -lt $(( 3 * ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} )) ]; then
+        echo "Restricting charging to two phases"
+        effectiveMaxCurrentPerPhaseInAmps[0]=$( echo "scale=2
+                                                 ${eBoxAllowedPowerInWatts} / 230 / 2" | bc )
+        effectiveMaxCurrentPerPhaseInAmps[1]=${effectiveMaxCurrentPerPhaseInAmps[0]}
+        effectiveMaxCurrentPerPhaseInAmps[2]=0
+      elif [ ${integerMaxCurrentPerPhaseInAmps} -ge ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
+        effectiveMaxCurrentPerPhaseInAmps=(${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS})
       else
-        effectiveMaxCurrentPerPhaseInAmps=${maxCurrentPerPhase}
+        effectiveMaxCurrentPerPhaseInAmps=(${maxCurrentPerPhase} ${maxCurrentPerPhase} ${maxCurrentPerPhase})
       fi
     fi
-    echo "Effective max cur./phase: ${effectiveMaxCurrentPerPhaseInAmps}A"
-    logger -t ebox_control "Setting maximum current per phase for eBox wallbox to ${effectiveMaxCurrentPerPhaseInAmps}A"
-    `dirname "${0}"`/ebox_write.py ${effectiveMaxCurrentPerPhaseInAmps} ${effectiveMaxCurrentPerPhaseInAmps} ${effectiveMaxCurrentPerPhaseInAmps}
+    echo "Effective max cur./phase: ${effectiveMaxCurrentPerPhaseInAmps[0]}A ${effectiveMaxCurrentPerPhaseInAmps[1]}A ${effectiveMaxCurrentPerPhaseInAmps[2]}A"
+    logger -t ebox_control "Setting maximum current per phase for eBox wallbox to ${effectiveMaxCurrentPerPhaseInAmps[0]}A, ${effectiveMaxCurrentPerPhaseInAmps[1]}A, ${effectiveMaxCurrentPerPhaseInAmps[2]}A"
+    `dirname "${0}"`/ebox_write.py ${effectiveMaxCurrentPerPhaseInAmps[0]} ${effectiveMaxCurrentPerPhaseInAmps[1]} ${effectiveMaxCurrentPerPhaseInAmps[2]}
     if [ -n "${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}" ]; then
       integerEBoxPowerInWatts=$( echo "${eBoxPowerInWatts}" | sed -e 's/\..*$//' )
       if [ ${integerEBoxPowerInWatts} -gt ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS} ]; then
