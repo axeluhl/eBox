@@ -16,6 +16,7 @@
 #  - as soon as 5min average of (PV production - Charge Power - Home Usage + Wallbox) is positive, increase wallbox power limit, min 6A,
 #    max (PV production - Charge Power - Home Usage + Wallbox), capped at 32A
 # Strategy 3: allow all excess PV power to go into car (PV production - Home Usage + Wallbox)
+# Strategy 4: pump all excess PV plus available home battery energy into car, avoiding use of grid and make room in home battery
 CONFIG_FILE=/etc/ebox_defaults.conf
 if [ -f ${CONFIG_FILE} ]; then
   source "${CONFIG_FILE}"
@@ -25,7 +26,12 @@ else
   MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS=5560
   MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50
   SOC_THRESHOLD_FOR_FULL_EXCESS=98
+  MIN_HOME_BATTERY_SOC_PERCENT=7
   MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
+fi
+# The maximum home battery discharge power defaults to its maximum charge power:
+if [ -z "${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" ]; then
+  MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS=${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}
 fi
 # Command line option handling:
 options=':s:p:mh'
@@ -40,6 +46,7 @@ do
            echo "           1 means to split excess PV energy evenly between home battery and wallbox;"
            echo "           2 means to prefer home battery charging and only send to wallbox what would otherwise be ingested to grid."
            echo "           3 means to prefer car charging and only send to the home battery what would otherwise be ingested to grid."
+           echo "           4 means to use all excess PV power plus home battery as long as SOC > MIN_HOME_BATTERY_SOC_PERCENT"
            echo "           Default is ${STRATEGY}."
            exit 5;;
         \?) echo "Invalid option"
@@ -68,6 +75,10 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       echo "Strategy 0: full throttle, ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS}A"
       effectiveMaxCurrentPerPhaseInAmps=(${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS})
     else
+      # another strategy where wallbox may need throttling, depending on available power
+      # from PV and/or home battery: start determining the eBoxAllowedPowerInWatts, then
+      # determine how to map that to the phases available and assign to
+      # effectiveMaxCurrentPerPhaseInAmps
       if [ "${STRATEGY}" = "1" ]; then
         echo "Strategy 1:"
         if [ ${integerSOCInPercent} -ge ${SOC_THRESHOLD_FOR_FULL_EXCESS} ]; then
@@ -90,6 +101,15 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       elif [ "${STRATEGY}" = "3" ]; then
         echo "Strategy 3: allow all excess PV power ${pvExcessPowerInWatts}W"
         eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
+      elif [ "${STRATEGY}" = "4" ]; then
+        echo "Strategy 4: use PV excess and home battery if SOC > MIN_HOME_BATTERY_SOC_PERCENT"
+        if [ ${integerSOCInPercent} -ge ${MIN_HOME_BATTERY_SOC_PERCENT} ]; then
+          eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" | bc )
+          echo "            SOC >= ${MIN_HOME_BATTERY_SOC_PERCENT}; using PV excess ${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS} = ${eBoxAllowedPowerInWatts}"
+        else
+          eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
+          echo "            SOC < ${MIN_HOME_BATTERY_SOC_PERCENT}; using only PV excess ${pvExcessPowerInWatts}"
+        fi
       else
         echo "Strategy ${STRATEGY} not known. Leaving wallbox configuration unchanged."
         exit 1
@@ -104,6 +124,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       integerMaxTotalCurrent=$( echo "${maxTotalCurrent}" | sed -e 's/\..*$//' | sed -e 's/^-\?$/0/' )
       integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' | sed -e 's/^-\?$/0/' )
       echo "Integer max cur./phase:   ${integerMaxCurrentPerPhaseInAmps}"
+      # Now map the total current to the phases available, considering the 6A current minimum on each phase.
       # Anything less than at least half the minimum current possible (6A/2=3A) on a single phase only
       # shall not lead to car charging as it would drain the home battery. Between a total maximum current
       # of 6A up to 12A we have to charge on a single phase. On 12A up to 18A we can charge on up to two phases,
