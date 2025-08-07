@@ -1,0 +1,37 @@
+#!/bin/bash
+if [ -z "$1" ]; then
+  echo "Usage: $0 [ -n {number-of-phases} ] [ -u {username} ] [ -p {password} ] [ -h {hostname} ] [{number-of-phases}]"
+  echo "The number of phases may be specified with the -n argument or as a single non-option argument."
+  echo "The default username is \"admin\"; the default hostname is \"ebox.axeluhl.de\""
+  echo "The username may also be specified using the EBOX_USERNAME environment variable."
+  echo "The password may also be specified using the EBOX_PASSWORD environment variable."
+  echo "The username may also be specified using the EBOX_HOSTNAME environment variable."
+fi
+options=':n:u:p:h:'
+while getopts $options option
+do
+    case $option in
+        n) NUMBER_OF_PHASES=$OPTARG;;
+        u) EBOX_USERNAME=$OPTARG;;
+        p) EBOX_PASSWORD=$OPTARG;;
+        h) EBOX_HOSTNAME=$OPTARG;;
+        \?) echo "Invalid option"
+            exit 4;;
+    esac
+done
+shift $((OPTIND-1))
+if [ -z "${EBOX_HOSTNAME}" ]; then
+  EBOX_HOSTNAME="ebox.axeluhl.de"
+fi
+if [ -z "${EBOX_USERNAME}" ]; then
+  EBOX_USERNAME="admin"
+fi
+if [ -z "${NUMBER_OF_PHASES}" ]; then
+  NUMBER_OF_PHASES=$1
+fi
+if [ -z "{NUMBER_OF_PHASES}" ]; then
+  echo "Number of phases unspecified. Use -n or first non-option argument!" >&2
+  exit 1
+fi
+ECU_SESSION_COOKIE=$( curl -D - -s -o /dev/null -k 'https://'${EBOX_HOSTNAME}'/cgi_c_login' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-raw 'username='${EBOX_USERNAME}'&password='${EBOX_PASSWORD} | grep "Set-Cookie: ecu_session=" | sed -e 's/^Set-Cookie: //' | tr -d '\r' )
+curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_ldp1.common' -X POST --data-raw 'evse_phases='${NUMBER_OF_PHASES} >/dev/null
