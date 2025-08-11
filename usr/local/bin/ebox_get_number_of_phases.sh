@@ -29,4 +29,4 @@ if [ -z "${EBOX_PASSWORD}" ]; then
   exit 2
 fi
 ECU_SESSION_COOKIE=$( curl -D - -s -o /dev/null -k 'https://'${EBOX_HOSTNAME}'/cgi_c_login' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-raw 'username='${EBOX_USERNAME}'&password='${EBOX_PASSWORD} | grep "Set-Cookie: ecu_session=" | sed -e 's/^Set-Cookie: //' | tr -d '\r' )
-curl -s -k -H 'Cookie: ${ECU_SESSION_COOKIE} https://ebox.axeluhl.de/cgi_s_ldp1.common | grep "Anzahl an Phasen" | sed -e 's/^.* value="\([0-3]\)".*$/\1/'
+curl -s -k -H 'Cookie: '${ECU_SESSION_COOKIE} https://ebox.axeluhl.de/cgi_s_ldp1.common | grep "Anzahl an Phasen" | sed -e 's/^.* value="\([0-3]\)".*$/\1/'
