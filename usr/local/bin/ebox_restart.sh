@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ -z "$1" ]; then
-  echo "Usage: $0 [ -n {number-of-phases} ] [ -u {username} ] [ -p {password} ] [ -h {hostname} ]"
+  echo "Usage: $0 [ -u {username} ] [ -p {password} ] [ -h {hostname} ]"
   echo "The default username is \"admin\"; the default hostname is \"ebox.axeluhl.de\""
   echo "The username may also be specified using the EBOX_USERNAME environment variable."
   echo "The password may also be specified using the EBOX_PASSWORD environment variable."
@@ -29,5 +29,4 @@ if [ -z "${EBOX_PASSWORD}" ]; then
   exit 2
 fi
 ECU_SESSION_COOKIE=$( curl -D - -s -o /dev/null -k 'https://'${EBOX_HOSTNAME}'/cgi_c_login' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-raw 'username='${EBOX_USERNAME}'&password='${EBOX_PASSWORD} | grep "Set-Cookie: ecu_session=" | sed -e 's/^Set-Cookie: //' | tr -d '\r' )
-curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_system.reset-trigger_restart' -X POST --data-raw 'restart=1'
-#curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_system.reset-trigger_restart' -X POST --data-raw 'restart=1' >/dev/null
+curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_system.reset-trigger_restart' -X POST --data-raw 'restart=1' >/dev/null

@@ -7,26 +7,38 @@
 # To disable this blocking behavior, set BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS
 # to a charging power value your wallbox may never exceed, e.g., 500000 (Watts)
 #
+# It is important to note the following boundary conditions for the Innogy eBox Professional,
+# at least at its firmware version 1.3.38:
+#  - when setting MaxCurrentPhase[1-3], all three phases will effectively be set to the
+#    minimum of the values set for the three phases; e.g., 6/0/0 will effectively result
+#    in 0/0/0 being set; or 6/9/9 will result in 6/6/6 being set. This means, in particular,
+#    that there is no point in trying to dynamically switch off one or two phases to reduce
+#    total charging current below 3*6A in case three-phase charging is possible.
+#  - when trying to adjust the number of phases used for charging, an "app restart"
+#    is required; this, in turn, requires both cable ends to be unplugged. Therefore,
+#    we're stuck with the number of phases in this rather short-term control loop.
+#  - at least with a Skoda Superb iV (2024 model), two-phase charging does not work
+#
 # Strategy 0: full throttle
-# Strategy 1: split excess PV energy evenly between home battery and wallbox: (PV production - Home Usage + Wallbox)/2
+# Strategy 1: split excess PV energy evenly between home battery and wallbox: (PV production - Home Usage w/o Wallbox)/2
 # Special cases:
 #  - car not connected or full; setting MaxCurrentPhase[123] won't make the wallbox consume energy in this case
 #  - home battery SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow car to take all excess PV energy (PV production - Home Usage + Wallbox), capped at 32A
 # Strategy 2: charge car only with energy otherwise ingested to grid, preferring home battery charging
-#  - as soon as 5min average of (PV production - Charge Power - Home Usage + Wallbox) is positive, increase wallbox power limit, min 6A,
+#  - as soon as 5min average of (PV production - Charge Power - Home Usage w/o Wallbox) is positive, increase wallbox power limit, min 6A,
 #    max (PV production - Charge Power - Home Usage + Wallbox), capped at 32A
-# Strategy 3: allow all excess PV power to go into car (PV production - Home Usage + Wallbox)
+# Strategy 3: allow all excess PV power to go into car (PV production - Home Usage w/o Wallbox)
 # Strategy 4: pump all excess PV plus available home battery energy into car, avoiding use of grid and make room in home battery
 CONFIG_FILE=/etc/ebox_defaults.conf
 if [ -f ${CONFIG_FILE} ]; then
   source "${CONFIG_FILE}"
 else
   STRATEGY=0
-  NUMBER_OF_PHASES_USED_FOR_CHARGING=1
+  NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
   MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS=5560
   MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50
   SOC_THRESHOLD_FOR_FULL_EXCESS=98
-  MIN_HOME_BATTERY_SOC_PERCENT=7
+  MIN_HOME_BATTERY_SOC_PERCENT=8
   MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
 fi
 # The maximum home battery discharge power defaults to its maximum charge power:
@@ -60,8 +72,8 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
     integerSOCInPercent=$( echo "${SOCInPercent}" | sed -e 's/\..*$//' )
     homeConsumptionWithoutWallboxInWatts=$( echo "${homeOwnConsumptionInWatts} - ${eBoxCurrentInAmps} * 230.0" | bc )
     pvExcessPowerInWatts=$( echo "${pvProductionInWatts} - ${homeConsumptionWithoutWallboxInWatts}" | bc )
-
     # Debug output:
+    echo "Number of phases:         ${NUMBER_OF_PHASES_USED_FOR_CHARGING}"
     echo "PV Production:            ${pvProductionInWatts}W"
     echo "Home w/ wallbox:          ${homeOwnConsumptionInWatts}W"
     echo "Integer SOC:              ${integerSOCInPercent}%"
@@ -70,7 +82,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
     echo "eBox Power:               ${eBoxPowerInWatts}W"
     echo "Home w/o wallbox:         ${homeConsumptionWithoutWallboxInWatts}W"
     echo "PV Excess Power:          ${pvExcessPowerInWatts}W"
-
+    # Strategy evaluation, computing eboxAllowedPowerInWatts and from it effectiveMaxCurrentPerPhaseInAmps[]:
     if [ "${STRATEGY}" = "0" ]; then
       echo "Strategy 0: full throttle, ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS}A"
       effectiveMaxCurrentPerPhaseInAmps=(${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS})
@@ -125,28 +137,18 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       integerMaxCurrentPerPhaseInAmps=$( echo "${maxCurrentPerPhase}" | sed -e 's/\..*$//' | sed -e 's/^-\?$/0/' )
       echo "Integer max cur./phase:   ${integerMaxCurrentPerPhaseInAmps}"
       # Now map the total current to the phases available, considering the 6A current minimum on each phase.
+      # Unfortunately, we can only have equal current limit for all three phases, especially with three-phase
+      # charging, so there our lower limit for charging power is 6A*230V*3=4140W
       # Anything less than at least half the minimum current possible (6A/2=3A) on a single phase only
-      # shall not lead to car charging as it would drain the home battery. Between a total maximum current
-      # of 6A up to 12A we have to charge on a single phase. On 12A up to 18A we can charge on up to two phases,
-      # limited by ${NUMBER_OF_PHASES_USED_FOR_CHARGING}, and beyond 18A we can charge on up to three phases,
-      # again limited by ${NUMBER_OF_PHASES_USED_FOR_CHARGING}.
+      # shall not lead to car charging as it would drain the home battery too much.
       HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=$(( MINIMUM_CURRENT_PER_PHASE_IN_AMPS / 2 ))
       echo "Minimum current per phase: ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A; half minimum current per phase: ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=}A"
-      if [ ${integerMaxTotalCurrent} -lt ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
+      if [ ${integerMaxCurrentPerPhaseInAmps} -lt ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
         echo "Less than half minimum current on single phase (${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A); stopping charge"
         effectiveMaxCurrentPerPhaseInAmps=(0 0 0)
-      elif [ ${integerMaxTotalCurrent} -lt ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
-        echo "Using minimum current on single phase"
-        effectiveMaxCurrentPerPhaseInAmps=(${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} 0 0)
-      elif [ ${NUMBER_OF_PHASES_USED_FOR_CHARGING} -le 1 -o ${integerMaxTotalCurrent} -lt $(( 2 * ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} )) ]; then
-        echo "Restricting charging to one phase"
-        effectiveMaxCurrentPerPhaseInAmps=(${maxTotalCurrent} 0 0)
-      elif [ ${NUMBER_OF_PHASES_USED_FOR_CHARGING} -le 2 -o ${integerMaxTotalCurrent} -lt $(( 3 * ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} )) ]; then
-        echo "Restricting charging to two phases"
-        effectiveMaxCurrentPerPhaseInAmps[0]=$( echo "scale=2
-                                                 ${eBoxAllowedPowerInWatts} / 230 / 2" | bc )
-        effectiveMaxCurrentPerPhaseInAmps[1]=${effectiveMaxCurrentPerPhaseInAmps[0]}
-        effectiveMaxCurrentPerPhaseInAmps[2]=0
+      elif [ ${integerMaxCurrentPerPhaseInAmps} -lt ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
+        echo "Using minimum current on each available phase"
+        effectiveMaxCurrentPerPhaseInAmps=(${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS})
       elif [ ${integerMaxCurrentPerPhaseInAmps} -ge ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
         effectiveMaxCurrentPerPhaseInAmps=(${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS} ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS})
       else
