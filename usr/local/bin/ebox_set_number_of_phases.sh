@@ -29,9 +29,13 @@ fi
 if [ -z "${NUMBER_OF_PHASES}" ]; then
   NUMBER_OF_PHASES=$1
 fi
-if [ -z "{NUMBER_OF_PHASES}" ]; then
+if [ -z "${NUMBER_OF_PHASES}" ]; then
   echo "Number of phases unspecified. Use -n or first non-option argument!" >&2
   exit 1
+fi
+if [ -z "${EBOX_PASSWORD}" ]; then
+  echo "No password specified. Aborting!" >&2
+  exit 2
 fi
 ECU_SESSION_COOKIE=$( curl -D - -s -o /dev/null -k 'https://'${EBOX_HOSTNAME}'/cgi_c_login' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-raw 'username='${EBOX_USERNAME}'&password='${EBOX_PASSWORD} | grep "Set-Cookie: ecu_session=" | sed -e 's/^Set-Cookie: //' | tr -d '\r' )
 curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_ldp1.common' -X POST --data-raw 'evse_phases='${NUMBER_OF_PHASES} >/dev/null
