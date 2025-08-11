@@ -24,9 +24,6 @@ fi
 if [ -z "${EBOX_USERNAME}" ]; then
   EBOX_USERNAME="admin"
 fi
-if [ -z "${NUMBER_OF_PHASES}" ]; then
-  NUMBER_OF_PHASES=$1
-fi
 if [ -z "${EBOX_PASSWORD}" ]; then
   echo "No password specified. Aborting!" >&2
   exit 2
