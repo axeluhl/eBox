@@ -109,7 +109,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
           echo "SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow all excess PV power ${pvExcessPowerInWatts}W"
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
         else
-          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept (${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W)"
+          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept \(${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W\)"
           eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} - ${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}" | bc )
         fi
       elif [ "${STRATEGY}" = "3" ]; then
