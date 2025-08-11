@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ -z "$1" ]; then
+if [ "$1" = "-?" ]; then
   echo "Usage: $0 [ -u {username} ] [ -p {password} ] [ -h {hostname} ]"
   echo "The default username is \"admin\"; the default hostname is \"ebox.axeluhl.de\""
   echo "The username may also be specified using the EBOX_USERNAME environment variable."
