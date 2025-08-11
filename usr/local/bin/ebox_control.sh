@@ -146,7 +146,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=$(( MINIMUM_CURRENT_PER_PHASE_IN_AMPS / 2 ))
       echo "Minimum current per phase: ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A; half minimum current per phase: ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=}A"
       if [ ${integerMaxCurrentPerPhaseInAmps} -lt ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
-        echo "Less than half minimum current on single phase (${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A); stopping charge"
+        echo "Less than half minimum current on single phase \(${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A\); stopping charge"
         effectiveMaxCurrentPerPhaseInAmps=(0 0 0)
       elif [ ${integerMaxCurrentPerPhaseInAmps} -lt ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
         echo "Using minimum current on each available phase"
