@@ -40,7 +40,7 @@ else
   MIN_HOME_BATTERY_SOC_PERCENT=8
   MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
 fi
-if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING} ]; then
+if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING}" ]; then
   NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
 fi
 # The maximum home battery discharge power defaults to its maximum charge power:
