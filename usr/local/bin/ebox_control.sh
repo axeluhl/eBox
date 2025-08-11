@@ -34,12 +34,14 @@ if [ -f ${CONFIG_FILE} ]; then
   source "${CONFIG_FILE}"
 else
   STRATEGY=0
-  NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
   MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS=5560
   MAXIMUM_CURRENT_PER_PHASE_IN_AMPS=50
   SOC_THRESHOLD_FOR_FULL_EXCESS=98
   MIN_HOME_BATTERY_SOC_PERCENT=8
   MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
+fi
+if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING} ]; then
+  NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
 fi
 # The maximum home battery discharge power defaults to its maximum charge power:
 if [ -z "${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" ]; then
