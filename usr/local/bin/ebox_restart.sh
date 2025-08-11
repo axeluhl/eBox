@@ -29,4 +29,5 @@ if [ -z "${EBOX_PASSWORD}" ]; then
   exit 2
 fi
 ECU_SESSION_COOKIE=$( curl -D - -s -o /dev/null -k 'https://'${EBOX_HOSTNAME}'/cgi_c_login' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-raw 'username='${EBOX_USERNAME}'&password='${EBOX_PASSWORD} | grep "Set-Cookie: ecu_session=" | sed -e 's/^Set-Cookie: //' | tr -d '\r' )
-curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_system.reset-trigger_restart' -X POST --data-raw 'restart=1' >/dev/null
+curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_s_system.reset' >/dev/null
+curl -k -s -i -H 'Cookie: '${ECU_SESSION_COOKIE} 'https://'${EBOX_HOSTNAME}'/cgi_c_system.reset-trigger_restart' -X POST --data-raw 'restart=1' | grep "<div class=\"box\">" | tail -1
