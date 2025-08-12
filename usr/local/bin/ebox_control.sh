@@ -42,6 +42,11 @@ else
 fi
 if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING}" ]; then
   NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
+  # sometimes it seems this doesn't work, for whatever reason; then default to 3:
+  if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING}" ]; then
+    NUMBER_OF_PHASES_USED_FOR_CHARGING=3
+    echo "Couldn't determine the number of phases used for charging. Defaulting to ${NUMBER_OF_PHASES_USED_FOR_CHARGING}"
+  fi
 fi
 # The maximum home battery discharge power defaults to its maximum charge power:
 if [ -z "${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" ]; then
