@@ -39,6 +39,7 @@ else
   SOC_THRESHOLD_FOR_FULL_EXCESS=98
   MIN_HOME_BATTERY_SOC_PERCENT=8
   MINIMUM_CURRENT_PER_PHASE_IN_AMPS=6
+  MAX_INVERTER_POWER_IN_WATTS=8100
 fi
 if [ -z "${NUMBER_OF_PHASES_USED_FOR_CHARGING}" ]; then
   NUMBER_OF_PHASES_USED_FOR_CHARGING=$( ebox_get_number_of_phases.sh )
@@ -65,7 +66,7 @@ do
            echo "           1 means to split excess PV energy evenly between home battery and wallbox;"
            echo "           2 means to prefer home battery charging and only send to wallbox what would otherwise be ingested to grid."
            echo "           3 means to prefer car charging and only send to the home battery what would otherwise be ingested to grid."
-           echo "           4 means to use all excess PV power plus home battery as long as SOC > MIN_HOME_BATTERY_SOC_PERCENT"
+           echo "           4 means to use all excess PV power plus home battery as long as SOC > MIN_HOME_BATTERY_SOC_PERCENT, but not more than MAX_INVERTER_POWER_IN_WATTS-home consumption"
            echo "           Default is ${STRATEGY}."
            exit 5;;
         \?) echo "Invalid option"
@@ -121,13 +122,17 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
         echo "Strategy 3: allow all excess PV power ${pvExcessPowerInWatts}W"
         eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
       elif [ "${STRATEGY}" = "4" ]; then
-        echo "Strategy 4: use PV excess and home battery if SOC > MIN_HOME_BATTERY_SOC_PERCENT"
+        echo "Strategy 4: use PV excess and home battery if SOC > MIN_HOME_BATTERY_SOC_PERCENT, but no more than MAX_INVERTER_POWER_IN_WATTS-homeConsumptionWithoutWallboxInWatts"
         if [ ${integerSOCInPercent} -ge ${MIN_HOME_BATTERY_SOC_PERCENT} ]; then
           eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" | bc )
           echo "            SOC >= ${MIN_HOME_BATTERY_SOC_PERCENT}; using PV excess ${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS} = ${eBoxAllowedPowerInWatts}"
         else
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
           echo "            SOC < ${MIN_HOME_BATTERY_SOC_PERCENT}; using only PV excess ${pvExcessPowerInWatts}"
+        fi
+        if [ ${eboxAllowedPowerInWatts} -ge $(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts )) ]; then
+          echo "            reducing to MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts, so ${MAX_INVERTER_POWER_IN_WATTS}-${homeConsumptionWithoutWallboxInWatts}=$(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts ))"
+          eBoxAllowedPowerInWatts=$(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts ))
         fi
       else
         echo "Strategy ${STRATEGY} not known. Leaving wallbox configuration unchanged."
