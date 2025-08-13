@@ -130,7 +130,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
           echo "            SOC < ${MIN_HOME_BATTERY_SOC_PERCENT}; using only PV excess ${pvExcessPowerInWatts}"
         fi
-        if [ ${eboxAllowedPowerInWatts} -ge $(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts )) ]; then
+        if [ ${eBoxAllowedPowerInWatts} -ge $(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts )) ]; then
           echo "            reducing to MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts, so ${MAX_INVERTER_POWER_IN_WATTS}-${homeConsumptionWithoutWallboxInWatts}=$(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts ))"
           eBoxAllowedPowerInWatts=$(( MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts ))
         fi
