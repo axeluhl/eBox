@@ -124,17 +124,17 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       elif [ "${STRATEGY}" = "4" ]; then
         integerHomeConsumptionWithoutWallboxInWatts=$( echo "${homeConsumptionWithoutWallboxInWatts}" | sed -e 's/\..*$//' )
         echo "Strategy 4: use PV excess and home battery if SOC > MIN_HOME_BATTERY_SOC_PERCENT, but no more than MAX_INVERTER_POWER_IN_WATTS-homeConsumptionWithoutWallboxInWatts"
-        echo "            so no more than ${MAX_INVERTER_POWER_IN_WATTS}-${homeConsumptionWithoutWallboxInWatts}=$(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))"
+        echo "            so no more than ${MAX_INVERTER_POWER_IN_WATTS}W-${homeConsumptionWithoutWallboxInWatts}W=$(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))W"
         if [ ${integerSOCInPercent} -ge ${MIN_HOME_BATTERY_SOC_PERCENT} ]; then
           eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}" | bc )
-          echo "            SOC >= ${MIN_HOME_BATTERY_SOC_PERCENT}; using PV excess ${pvExcessPowerInWatts} + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS} = ${eBoxAllowedPowerInWatts}"
+          echo "            SOC >= ${MIN_HOME_BATTERY_SOC_PERCENT}%; using PV excess ${pvExcessPowerInWatts}W + ${MAX_HOME_BATTERY_DISCHARGE_POWER_IN_WATTS}W = ${eBoxAllowedPowerInWatts}W"
         else
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
-          echo "            SOC < ${MIN_HOME_BATTERY_SOC_PERCENT}; using only PV excess ${pvExcessPowerInWatts}"
+          echo "            SOC < ${MIN_HOME_BATTERY_SOC_PERCENT}%; using only PV excess ${pvExcessPowerInWatts}W"
         fi
         integerEBoxAllowedPowerInWatts=$( echo "${eBoxAllowedPowerInWatts}" | sed -e 's/\..*$//' )
         if [ ${integerEBoxAllowedPowerInWatts} -ge $(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts )) ]; then
-          echo "            reducing to MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts, so ${MAX_INVERTER_POWER_IN_WATTS}-${integerHomeConsumptionWithoutWallboxInWatts}=$(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))"
+          echo "            reducing to MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts, so ${MAX_INVERTER_POWER_IN_WATTS}W - ${integerHomeConsumptionWithoutWallboxInWatts}W = $(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))W"
           eBoxAllowedPowerInWatts=$(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))
         fi
       else
