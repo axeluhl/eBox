@@ -115,7 +115,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
           echo "SOC >= ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow all excess PV power ${pvExcessPowerInWatts}W"
           eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
         else
-          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept \(${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W\)"
+          echo "SOC < ${SOC_THRESHOLD_FOR_FULL_EXCESS}%: allow excess PV power ${pvExcessPowerInWatts}W beyond what home battery can accept (${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}W)"
           eBoxAllowedPowerInWatts=$( echo "${pvExcessPowerInWatts} - ${MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS}" | bc )
         fi
       elif [ "${STRATEGY}" = "3" ]; then
@@ -159,7 +159,7 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=$(( MINIMUM_CURRENT_PER_PHASE_IN_AMPS / 2 ))
       echo "Minimum current per phase: ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A; half minimum current per phase: ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS=}A"
       if [ ${integerMaxCurrentPerPhaseInAmps} -lt ${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
-        echo "Less than half minimum current on single phase \(${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A\); stopping charge"
+        echo "Less than half minimum current on single phase (${HALF_MINIMUM_CURRENT_PER_PHASE_IN_AMPS}A); stopping charge"
         effectiveMaxCurrentPerPhaseInAmps=(0 0 0)
       elif [ ${integerMaxCurrentPerPhaseInAmps} -lt ${MINIMUM_CURRENT_PER_PHASE_IN_AMPS} ]; then
         echo "Using minimum current on each available phase"
@@ -176,11 +176,11 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
     if [ -n "${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}" ]; then
       integerEBoxPowerInWatts=$( echo "${eBoxPowerInWatts}" | sed -e 's/\..*$//' )
       if [ ${integerEBoxPowerInWatts} -gt ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS} ]; then
-        logger -t ebox_control "Blocking home battery discharge because wallbox power \(${integerEBoxPowerInWatts}W\) exceeds ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
+        logger -t ebox_control "Blocking home battery discharge because wallbox power (${integerEBoxPowerInWatts}W) exceeds ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
         kostal-interval.py block | logger -t ebox_control
       else
         # TODO if the battery was blocked for this interval, e.g., to save battery capacity for noon time, keep it at that!
-        logger -t ebox_control "Allowing home battery to discharge because wallbox power \(${integerEBoxPowerInWatts}W\) does not exceed ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
+        logger -t ebox_control "Allowing home battery to discharge because wallbox power (${integerEBoxPowerInWatts}W) does not exceed ${BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS}W as set in ${CONFIG_FILE} in the variable BLOCK_HOME_BATTERY_DISCHARGE_IF_WALLBOX_POWER_EXCEEDS_WATTS"
         kostal-interval.py revert | logger -t ebox_control
       fi
     fi
