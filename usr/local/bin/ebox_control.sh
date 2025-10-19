@@ -27,7 +27,8 @@
 # Strategy 2: charge car only with energy otherwise ingested to grid, preferring home battery charging
 #  - as soon as 5min average of (PV production - Charge Power - Home Usage w/o Wallbox) is positive, increase wallbox power limit, min 6A,
 #    max (PV production - Charge Power - Home Usage + Wallbox), capped at 32A
-# Strategy 3: allow all excess PV power to go into car (PV production - Home Usage w/o Wallbox)
+# Strategy 3: allow all excess PV power to go into car (PV production - Home Usage w/o Wallbox,
+#             but no more than MAX_INVERTER_POWER_IN_WATTS-home consumption)
 # Strategy 4: pump all excess PV plus available home battery energy into car, avoiding use of grid and make room in home battery
 CONFIG_FILE=/etc/ebox_defaults.conf
 if [ -f ${CONFIG_FILE} ]; then
@@ -63,9 +64,9 @@ do
         p) NUMBER_OF_PHASES_USED_FOR_CHARGING=$OPTARG;;
         h) echo "Usage: $0 [ -s <STRATEGY> ] [ -m <MAX_HOME_BATTERY_CHARGE_POWER_IN_WATTS> ] [ -p <NUMBER_OF_PHASES_USED_FOR_CHARGING> ]"
            echo " STRATEGY: 0 means to open the wallbox throttle entirely; ${MAXIMUM_CURRENT_PER_PHASE_IN_AMPS}A"
-           echo "           1 means to split excess PV energy evenly between home battery and wallbox;"
-           echo "           2 means to prefer home battery charging and only send to wallbox what would otherwise be ingested to grid."
-           echo "           3 means to prefer car charging and only send to the home battery what would otherwise be ingested to grid."
+           echo "           1 means to split excess PV energy evenly between home battery and wallbox"
+           echo "           2 means to prefer home battery charging and only send to wallbox what would otherwise be ingested to grid"
+           echo "           3 means to prefer car charging and only send to the home battery what would otherwise be ingested to grid, but not more than MAX_INVERTER_POWER_IN_WATTS-home consumption"
            echo "           4 means to use all excess PV power plus home battery as long as SOC > MIN_HOME_BATTERY_SOC_PERCENT, but not more than MAX_INVERTER_POWER_IN_WATTS-home consumption"
            echo "           Default is ${STRATEGY}."
            exit 5;;
@@ -121,6 +122,11 @@ influx -host "${INFLUXDB_HOSTNAME}" -database kostal -execute 'select mean("PV p
       elif [ "${STRATEGY}" = "3" ]; then
         echo "Strategy 3: allow all excess PV power ${pvExcessPowerInWatts}W"
         eBoxAllowedPowerInWatts=${pvExcessPowerInWatts}
+        integerEBoxAllowedPowerInWatts=$( echo "${eBoxAllowedPowerInWatts}" | sed -e 's/\..*$//' )
+        if [ ${integerEBoxAllowedPowerInWatts} -ge $(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts )) ]; then
+          echo "            reducing to MAX_INVERTER_POWER_IN_WATTS - homeConsumptionWithoutWallboxInWatts, so ${MAX_INVERTER_POWER_IN_WATTS}W - ${integerHomeConsumptionWithoutWallboxInWatts}W = $(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))W"
+          eBoxAllowedPowerInWatts=$(( MAX_INVERTER_POWER_IN_WATTS - integerHomeConsumptionWithoutWallboxInWatts ))
+        fi
       elif [ "${STRATEGY}" = "4" ]; then
         integerHomeConsumptionWithoutWallboxInWatts=$( echo "${homeConsumptionWithoutWallboxInWatts}" | sed -e 's/\..*$//' )
         echo "Strategy 4: use PV excess and home battery if SOC > MIN_HOME_BATTERY_SOC_PERCENT, but no more than MAX_INVERTER_POWER_IN_WATTS-homeConsumptionWithoutWallboxInWatts"
