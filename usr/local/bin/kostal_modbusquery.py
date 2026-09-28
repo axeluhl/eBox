@@ -258,10 +258,18 @@ class kostal_modbusquery:
             print ("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 #-----------------------------
 
-# Metrics that are not cumulative counters (e.g., instantaneous rates/percentages) and therefore
-# must never be shifted by an offset, even if a matching entry happens to be present in the
-# offsets file.
+# Metrics that are not cumulative counters (e.g., rates/percentages) and therefore must never be
+# shifted by an offset, even if a matching entry happens to be present in the offsets file.
 NON_CUMULATIVE_METRICS = {"Total home consumption rate"}
+
+# The inverter computes the self-consumption rate as
+#   (Total home consumption PV + Total home consumption Battery) / Total yield * 100
+# (verified against historic data). After a counter reset it is based on the nulled counters,
+# so it gets recomputed from the offset-corrected totals instead.
+HOME_CONSUMPTION_RATE = "Total home consumption rate"
+HOME_CONSUMPTION_PV = "Total home consumption PV"
+HOME_CONSUMPTION_BATTERY = "Total home consumption Battery"
+TOTAL_YIELD = "Total yield"
 
 
 def load_offsets(offsets_file):
@@ -284,7 +292,8 @@ def load_offsets(offsets_file):
 
 
 def apply_offsets(kostal_register, offsets):
-    """Adds the configured offset to each matching, non-excluded register value in place."""
+    """Adds the configured offset to each matching, non-excluded register value in place and
+    recomputes the home consumption rate from the corrected totals."""
     if not offsets:
         return
     known_names = {adr[1] for adr in kostal_register}
@@ -297,6 +306,26 @@ def apply_offsets(kostal_register, offsets):
             continue
         if name in offsets:
             adr[3] = adr[3] + offsets[name]
+    recompute_home_consumption_rate(kostal_register)
+
+
+def recompute_home_consumption_rate(kostal_register):
+    """Replaces the "Total home consumption rate" register value in place by the rate computed
+    from the (possibly offset-corrected) PV, battery and yield totals."""
+    by_name = {adr[1]: adr for adr in kostal_register}
+    try:
+        pv = by_name[HOME_CONSUMPTION_PV][3]
+        battery = by_name[HOME_CONSUMPTION_BATTERY][3]
+        total_yield = by_name[TOTAL_YIELD][3]
+        rate_adr = by_name[HOME_CONSUMPTION_RATE]
+    except KeyError as ex:
+        print("WARNING: cannot recompute \"" + HOME_CONSUMPTION_RATE + "\"; missing register", ex)
+        return
+    if not total_yield:
+        return
+    rate = round((pv + battery) / total_yield * 100, 2)
+    print("Recomputed " + HOME_CONSUMPTION_RATE + ": " + str(rate) + " (inverter reported " + str(rate_adr[3]) + ")")
+    rate_adr[3] = rate
 
 
 if __name__ == "__main__":  
