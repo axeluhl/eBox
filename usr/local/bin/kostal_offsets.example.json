@@ -1,0 +1,17 @@
+{
+  "Total AC charge energy (AC-side to battery) (f32)": 94352,
+  "Total AC charge energy (grid to battery) (f32)": 86028,
+  "Total AC discharge energy (battery to grid) (f32)": 13855,
+  "Total DC PV energy (sum of all PV inputs) (f32)": 25607702,
+  "Total DC charge energy (DC-side to battery) (f32)": 5585125,
+  "Total DC discharge energy (DC-side from battery) (f32)": 5397272,
+  "Total DC energy from PV1 (f32)": 13076025,
+  "Total DC energy from PV2 (f32)": 12529275,
+  "Total DC energy from PV3 (f32)": 2403,
+  "Total energy AC-side to grid (f32)": 12646242,
+  "Total home consumption": 16561613,
+  "Total home consumption Battery": 6252682,
+  "Total home consumption Grid": 5476991,
+  "Total home consumption PV": 4929475,
+  "Total yield": 23828398
+}

@@ -37,6 +37,7 @@
 #
 import pymodbus
 import argparse
+import json
 import time
 import sys
 import datetime
@@ -257,6 +258,46 @@ class kostal_modbusquery:
             print ("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 #-----------------------------
 
+# Metrics that are not cumulative counters (e.g., instantaneous rates/percentages) and therefore
+# must never be shifted by an offset, even if a matching entry happens to be present in the
+# offsets file.
+NON_CUMULATIVE_METRICS = {"Total home consumption rate"}
+
+
+def load_offsets(offsets_file):
+    """Load a JSON file mapping register names (as used in self.Adr[*][1]) to an offset value
+    that gets added to the value read via Modbus. This is meant to compensate for counters that
+    got reset/nulled by the inverter (e.g., after a firmware update or a hardware reset), by
+    supplying the last known value recorded before the reset happened.
+
+    Returns a dict of {metric_name: offset}. Returns an empty dict if no file is given.
+    """
+    if not offsets_file:
+        return {}
+    with open(offsets_file, "r") as f:
+        offsets = json.load(f)
+    for metric_name in NON_CUMULATIVE_METRICS:
+        if metric_name in offsets:
+            print("WARNING: offsets file contains an entry for \"" + metric_name + "\", which is "
+                  "not a cumulative counter and will NOT be offset. Remove it from the offsets file.")
+    return offsets
+
+
+def apply_offsets(kostal_register, offsets):
+    """Adds the configured offset to each matching, non-excluded register value in place."""
+    if not offsets:
+        return
+    known_names = {adr[1] for adr in kostal_register}
+    for metric_name in offsets:
+        if metric_name not in known_names and metric_name not in NON_CUMULATIVE_METRICS:
+            print("WARNING: offsets file references unknown metric \"" + metric_name + "\"")
+    for adr in kostal_register:
+        name = adr[1]
+        if name in NON_CUMULATIVE_METRICS:
+            continue
+        if name in offsets:
+            adr[3] = adr[3] + offsets[name]
+
 
 if __name__ == "__main__":  
   my_parser = argparse.ArgumentParser()
@@ -268,6 +309,10 @@ if __name__ == "__main__":
                       help='The host name or IP address where your InfluxDB database for storing your inverter values is running; defaults to "klo.axeluhl.de"')
   my_parser.add_argument('--db', default='kostal',
                       help='The InfluxDB database name for storing your inverter values; defaults to "kostal"')
+  my_parser.add_argument('--offsets-file', default=None,
+                      help='Path to an optional JSON file mapping register names to an offset that gets '
+                           'added to the value read via Modbus. Use this to compensate for counters that were '
+                           'reset/nulled by the inverter, by recording the last known value prior to the reset.')
   my_parser.add_argument('repetitions', nargs='?', default='1',
                       help='The number of times to poll the Modbus values; defaults to 1')
   my_parser.add_argument('intervalInSeconds', nargs='?', default='0',
@@ -275,6 +320,7 @@ if __name__ == "__main__":
   args = vars(my_parser.parse_args())
   repetitions=int(args['repetitions'])
   intervalInSeconds=int(args['intervalInSeconds'])
+  offsets = load_offsets(args['offsets_file'])
   for i in range(0, repetitions):
     start=time.time()
     print ("Starting QUERY #"+str(i+1)+"...")
@@ -285,6 +331,7 @@ if __name__ == "__main__":
     except Exception as ex:
         print (traceback.format_exc())
         print ("Issues querying Kostal Plenticore -ERROR :", ex)
+    apply_offsets(Kostalquery.KostalRegister, offsets)
     influx_json_body = [
             {
                 "measurement": "pv",
